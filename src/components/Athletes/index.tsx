@@ -3,7 +3,7 @@ import dayjs, { Dayjs } from 'dayjs';
 import "dayjs/locale/ar-dz";
 import { useMemo, useState } from 'react';
 import { BiRefresh } from 'react-icons/bi';
-import { FaEdit, FaPlusCircle, FaTrash } from 'react-icons/fa';
+import { FaEdit, FaPlusCircle, FaTrash, FaUsers, FaCheckCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
 import { useMutation, useQuery } from 'react-query';
 import { Athlete, deleteAthlete, fetchAthletes } from '../../api';
 import { MAX_DAYS_TO_PAY, daysToPay } from '../../helpers';
@@ -26,28 +26,31 @@ function daysOrDayArabic(days: number) {
     if (days === 0)
         return 'يدفع اليوم';
     if (days === 1)
-        return 'يوم واحد للدفع';
+        return 'يوم واحد';
+    if (days === 2)
+        return 'يومان';
     if ((days % 100) <= 10 && (days % 100) > 1)
-        return days + ' أيام للدفع';
-    return days + ' يوم للدفع';
-
+        return days + ' أيام';
+    return days + ' يوم';
 }
 
 function PaymentStatus({ daysToPay }: { daysToPay: number; }) {
     const color = useMemo(() => {
-        if (daysToPay <= 0) return 'red';
-        if (daysToPay < MAX_DAYS_TO_PAY) return 'yellow';
-        return 'green';
+        if (daysToPay <= 0) return '#ff4d4f';
+        if (daysToPay < MAX_DAYS_TO_PAY) return '#faad14';
+        return '#52c41a';
     }, [daysToPay]);
 
-    return <div className='flex flex-col gap-2 items-center justify-center'>
-        {daysToPay <= 0 && <Tag color='red'>
-            انتهى
-            {daysToPay < 0 && <>&nbsp;منذ {daysOrDayArabic(-daysToPay)}</>}
-        </Tag>}
-        <span className={`font-bold text-white`} style={{
-            color
-        }}>{daysOrDayArabic(Math.max(daysToPay, 0))}</span>
+    return <div className='flex flex-col gap-1 items-center justify-center'>
+        {daysToPay <= 0 ? (
+            <Tag color='error' className='m-0 font-bold px-2 py-1 text-sm'>
+                انتهى {daysToPay < 0 ? `منذ ${daysOrDayArabic(-daysToPay)}` : 'اليوم'}
+            </Tag>
+        ) : (
+            <span className='font-bold text-lg' style={{ color }}>
+                {daysOrDayArabic(daysToPay)} للدفع
+            </span>
+        )}
     </div>;
 }
 
@@ -55,6 +58,18 @@ function Note({ value }: { value: string; }) {
     return value.length > 30 ? <Popover content={<span className='max-w-56 block'>{value}</span>}>
         {value.substring(0, 30)}...
     </Popover> : <span>{value}</span>;
+}
+
+// Arabic text normalization helper to standardize search behavior
+function normalizeArabic(text: string): string {
+    return text
+        .replace(/[أإآا]/g, 'ا')
+        .replace(/ة/g, 'ه')
+        .replace(/ى/g, 'ي')
+        .replace(/ئ/g, 'ي')
+        .replace(/ؤ/g, 'و')
+        .replace(/[\u064B-\u065F]/g, '') // remove diacritics
+        .toLowerCase();
 }
 
 export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', setMode: (mode: 'dark' | 'light') => void; }) {
@@ -86,10 +101,24 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
         });
     }), [data]);
 
-    const processedData = useMemo(() => processedDatax?.filter(a => a.name.includes(searchText)), [processedDatax, searchText]);
+    const processedData = useMemo(() => {
+        if (!processedDatax) return [];
+        const normalizedSearch = normalizeArabic(searchText);
+        return processedDatax.filter(a => 
+            normalizeArabic(a.name).includes(normalizedSearch)
+        );
+    }, [processedDatax, searchText]);
+
+    const stats = useMemo(() => {
+        const total = processedDatax?.length || 0;
+        const active = processedDatax?.filter(a => a.daysToPay > 0).length || 0;
+        const expired = processedDatax?.filter(a => a.daysToPay <= 0).length || 0;
+        const warning = processedDatax?.filter(a => a.daysToPay > 0 && a.daysToPay <= MAX_DAYS_TO_PAY).length || 0;
+        return { total, active, expired, warning };
+    }, [processedDatax]);
 
     return (
-        <div className='flex flex-col items-center gap-5 h-[calc(100%-100px)] box-border'>
+        <div className='flex flex-col items-center gap-5 h-[calc(100%-100px)] box-border w-full'>
             <CreateAthlete
                 onCancel={() => setCreateModalOpen(false)}
                 onSuccess={() => {
@@ -107,10 +136,49 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
 
             <Logs open={logsOpen} onClose={() => setLogsOpen(false)} />
 
-            <div className='flex gap-5 items-center justify-center'>
+            {/* Premium Stats Dashboard */}
+            <div className='grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full px-2 mt-2'>
+                <div className='bg-gradient-to-br from-blue-600/90 to-indigo-700/90 backdrop-blur-md p-5 rounded-2xl text-white shadow-lg flex justify-between items-center transition-all duration-300 hover:scale-[1.03] hover:shadow-indigo-500/20 border border-solid border-white/10'>
+                    <div className='flex flex-col gap-1'>
+                        <span className='text-xs opacity-75 font-medium'>إجمالي المشتركين</span>
+                        <span className='text-3xl font-extrabold'>{stats.total} <span className='text-sm font-normal'>عضو</span></span>
+                    </div>
+                    <div className='bg-white/10 p-3 rounded-xl'>
+                        <FaUsers size={28} className='text-white/90' />
+                    </div>
+                </div>
+                <div className='bg-gradient-to-br from-emerald-500/90 to-teal-600/90 backdrop-blur-md p-5 rounded-2xl text-white shadow-lg flex justify-between items-center transition-all duration-300 hover:scale-[1.03] hover:shadow-teal-500/20 border border-solid border-white/10'>
+                    <div className='flex flex-col gap-1'>
+                        <span className='text-xs opacity-75 font-medium'>الاشتراكات النشطة</span>
+                        <span className='text-3xl font-extrabold'>{stats.active} <span className='text-sm font-normal'>عضو</span></span>
+                    </div>
+                    <div className='bg-white/10 p-3 rounded-xl'>
+                        <FaCheckCircle size={28} className='text-white/90' />
+                    </div>
+                </div>
+                <div className='bg-gradient-to-br from-amber-500/90 to-orange-600/90 backdrop-blur-md p-5 rounded-2xl text-white shadow-lg flex justify-between items-center transition-all duration-300 hover:scale-[1.03] hover:shadow-orange-500/20 border border-solid border-white/10'>
+                    <div className='flex flex-col gap-1'>
+                        <span className='text-xs opacity-75 font-medium'>اشتراكات قريبة الانتهاء</span>
+                        <span className='text-3xl font-extrabold'>{stats.warning} <span className='text-sm font-normal'>عضو</span></span>
+                    </div>
+                    <div className='bg-white/10 p-3 rounded-xl'>
+                        <FaExclamationTriangle size={28} className='text-white/90' />
+                    </div>
+                </div>
+                <div className='bg-gradient-to-br from-rose-500/90 to-red-600/90 backdrop-blur-md p-5 rounded-2xl text-white shadow-lg flex justify-between items-center transition-all duration-300 hover:scale-[1.03] hover:shadow-red-500/20 border border-solid border-white/10'>
+                    <div className='flex flex-col gap-1'>
+                        <span className='text-xs opacity-75 font-medium'>الاشتراكات المنتهية</span>
+                        <span className='text-3xl font-extrabold'>{stats.expired} <span className='text-sm font-normal'>عضو</span></span>
+                    </div>
+                    <div className='bg-white/10 p-3 rounded-xl'>
+                        <FaTimesCircle size={28} className='text-white/90' />
+                    </div>
+                </div>
+            </div>
+
+            <div className='flex gap-5 items-center justify-center w-full mt-2'>
                 <Tag className='text-lg'>اليوم: {dayjs().locale("ar-dz").format('D MMMM YYYY')}</Tag>
                 <Tag className='text-lg'>{data?.length} شخص</Tag>
-
 
                 <Tooltip title="إضافة شخص">
                     <Button onClick={() => setCreateModalOpen(true)} className='m-0 p-3' type='primary'>
@@ -146,7 +214,7 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                     defaultChecked={mode === "dark"} />
             </div>
 
-            <div className='overflow-auto w-full grow'>
+            <div className='overflow-auto w-full grow mt-2'>
                 <Table<AtheleteDetailed>
                     loading={status === 'loading'}
                     className='min-w-[1000px]'
@@ -175,8 +243,8 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                             dataIndex: 'lastPaymentDate',
                             title: 'إلى',
                             render: (date: Dayjs, r) => <span>
-                                <span>{date.locale("ar-dz").add(30, 'day').format('D MMMM YYYY')}</span>
-                                {r.daysPaid !== undefined && r.daysPaid !== 30 && <span className='text-green-500 font-bold'> (دفع {r.daysPaid})</span>}
+                                <span>{date.locale("ar-dz").add(r.daysPaid ?? 30, 'day').format('D MMMM YYYY')}</span>
+                                {r.daysPaid !== undefined && r.daysPaid !== 30 && <span className='text-green-500 font-bold'> (دفع {r.daysPaid} يوم)</span>}
                             </span>
                         },
                         {
@@ -209,7 +277,7 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                             title: 'الصورة',
                             className: '!text-center',
                             width: 120,
-                            render: (avatar: string) => avatar ? <Image src={avatar} alt='avatar' width={100} height={100} /> : '-'
+                            render: (avatar: string) => avatar ? <Image src={avatar.startsWith('/avatars/') ? `http://localhost:8048${avatar}` : avatar} alt='avatar' width={100} height={100} /> : '-'
                         },
                         {
                             key: 'actions',
@@ -225,6 +293,11 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                         }
                     ] as TableColumnsType<AtheleteDetailed>}
                 />
+            </div>
+
+            {/* Fixed Branding Footer */}
+            <div className="w-full text-center text-xs py-3 border-t border-solid border-gray-700/30 opacity-60 mt-1 select-none pointer-events-none">
+                جميع الحقوق محفوظة © ٢٠٢٦ | تطوير وبرمجة: المطور المحترف
             </div>
         </div>
     );

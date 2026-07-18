@@ -34,3 +34,11 @@ export async function updateAthlete(value: Athlete) {
 export async function deleteAthlete(id: number) {
     await axios.delete(`/athletes/${id}`);
 }
+
+export async function fetchSettings() {
+    return (await axios.get<Record<string, string>>('/settings')).data;
+}
+
+export async function updateSettings(value: { key: string; value: string }) {
+    return (await axios.patch<{ message: string }>('/settings', value)).data;
+}

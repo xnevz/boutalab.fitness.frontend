@@ -7,14 +7,14 @@ export default function HiddenContent({ children }: PropsWithChildren) {
         // listen for Ctrl+Alt+D
         const handler = (e: KeyboardEvent) => {
             if (e.ctrlKey && e.altKey && e.key === 'd') {
-                setHidden(!hidden);
+                setHidden(h => !h);
             }
         };
 
         window.addEventListener('keydown', handler);
 
         return () => window.removeEventListener('keydown', handler);
-    });
+    }, []);
 
     return (
         <div className={hidden ? 'hidden' : undefined}>

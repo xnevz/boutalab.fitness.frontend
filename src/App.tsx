@@ -1,11 +1,71 @@
-import { ConfigProvider, ThemeConfig, Typography, theme } from 'antd';
+import { ConfigProvider, ThemeConfig, Typography, theme, message } from 'antd';
 import ar_EG from 'antd/locale/ar_EG';
 import { useEffect, useMemo, useState } from 'react';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import { QueryClient, QueryClientProvider, useMutation, useQuery } from 'react-query';
 import Athletes from "./components/Athletes";
+import { fetchSettings, updateSettings } from './api';
 
 
 const queryClient = new QueryClient();
+
+function GymApp({ mode, setMode }: { mode: 'dark' | 'light', setMode: (mode: 'dark' | 'light') => void; }) {
+    const { data: settings, refetch } = useQuery('settings', fetchSettings);
+
+    const { mutateAsync: updateSettingsAsync } = useMutation(updateSettings, {
+        onSuccess() {
+            refetch();
+            message.success('تم تحديث الاسم بنجاح');
+        },
+        onError() {
+            message.error('حدث خطأ أثناء تحديث الاسم');
+        }
+    });
+
+    const gymName = settings?.gym_name || 'النادي الهاوي لكمال الأجسام رميساء';
+    const [isAdmin, setIsAdmin] = useState(false);
+
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.ctrlKey && e.altKey && e.key === 'd') {
+                setIsAdmin(admin => !admin);
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
+
+    const handleTitleChange = async (newTitle: string) => {
+        if (!newTitle || newTitle.trim().length < 3) {
+            message.warning('الاسم قصير جداً');
+            return;
+        }
+        await updateSettingsAsync({ key: 'gym_name', value: newTitle.trim() });
+    };
+
+    return (
+        <div className={"p-4 pb-0 box-border " + mode}>
+            <div className="flex flex-col items-center justify-center gap-1 mb-2">
+                <Typography.Title 
+                    level={2} 
+                    className="font-bold m-0 text-center"
+                    editable={isAdmin ? {
+                        onChange: handleTitleChange,
+                        tooltip: 'تعديل اسم النادي',
+                        triggerType: ['icon', 'text']
+                    } : false}
+                >
+                    {gymName}
+                </Typography.Title>
+                {!isAdmin && (
+                    <span className="text-[10px] text-gray-500 opacity-60 pointer-events-none select-none">
+                        (اضغط Ctrl+Alt+D للتحكم في الإعدادات)
+                    </span>
+                )}
+            </div>
+            <Athletes {...{ mode, setMode }} />
+        </div>
+    );
+}
 
 function App() {
 
@@ -15,7 +75,7 @@ function App() {
         algorithm: mode == 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
         token: {
             fontSize: 20,
-            fontFamily: 'Rubik'
+            fontFamily: 'Cairo'
         }
     } as ThemeConfig), [mode]);
 
@@ -26,10 +86,7 @@ function App() {
     return (
         <QueryClientProvider client={queryClient}>
             <ConfigProvider locale={ar_EG} direction="rtl" theme={antdTheme}>
-                <div className={"p-4 pb-0 box-border " + mode}>
-                    <Typography.Title level={2} className="font-bold m-0 text-nowrap text-ellipsis text-center">النادي الهاوي لكمال الأجسام رميساء</Typography.Title>
-                    <Athletes {...{ mode, setMode }} />
-                </div>
+                <GymApp {...{ mode, setMode }} />
             </ConfigProvider>
         </QueryClientProvider>
     );
