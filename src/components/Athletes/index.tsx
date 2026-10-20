@@ -3,9 +3,9 @@ import dayjs, { Dayjs } from 'dayjs';
 import "dayjs/locale/ar-dz";
 import { useMemo, useState } from 'react';
 import { BiRefresh } from 'react-icons/bi';
-import { FaEdit, FaPlusCircle, FaTrash, FaUsers, FaCheckCircle, FaExclamationTriangle, FaTimesCircle } from 'react-icons/fa';
+import { FaEdit, FaPlusCircle, FaTrash, FaUsers, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaCalendarPlus } from 'react-icons/fa';
 import { useMutation, useQuery } from 'react-query';
-import { Athlete, deleteAthlete, fetchAthletes } from '../../api';
+import { Athlete, deleteAthlete, fetchAthletes, updateAthlete } from '../../api';
 import { MAX_DAYS_TO_PAY, daysToPay } from '../../helpers';
 import CreateAthlete from './components/CreateAthlete';
 import EditAthlete from './components/EditAthlete';
@@ -92,6 +92,31 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
         }
     });
 
+    const { mutateAsync: updateAthleteAsync } = useMutation({
+        mutationFn: updateAthlete,
+        onSuccess() {
+            refetch();
+            message.success('تم تجديد الاشتراك بنجاح');
+        },
+        onError() {
+            message.error('حدث خطأ أثناء تجديد الاشتراك');
+        }
+    });
+
+    const handleAdd30Days = async (athlete: Athlete) => {
+        try {
+            const currentLastPaymentDate = dayjs(athlete.lastPaymentDate);
+            const daysToAdd = athlete.daysPaid || 30;
+            const newDate = currentLastPaymentDate.add(daysToAdd, 'day').format('YYYY-MM-DD');
+            await updateAthleteAsync({
+                ...athlete,
+                lastPaymentDate: newDate as any
+            });
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
     const processedDatax = useMemo(() => data?.map(d => {
         const lastPaymentDate = dayjs(d.lastPaymentDate);
         return ({
@@ -118,7 +143,7 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
     }, [processedDatax]);
 
     return (
-        <div className='flex flex-col items-center gap-5 h-[calc(100%-100px)] box-border w-full'>
+        <div className='flex flex-col items-center gap-5 h-full box-border w-full'>
             <CreateAthlete
                 onCancel={() => setCreateModalOpen(false)}
                 onSuccess={() => {
@@ -281,10 +306,22 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                         },
                         {
                             key: 'actions',
-                            width: 150,
+                            width: 180,
                             className: '!text-center',
                             title: 'العمليات',
                             render: (_v, r) => <div>
+                                <Tooltip title={`تجديد الاشتراك (${r.daysPaid || 30} يوم)`}>
+                                    <Popconfirm 
+                                        title={`هل تريد إضافة ${r.daysPaid || 30} يوماً لهذا الرياضي؟`} 
+                                        onConfirm={() => handleAdd30Days(r)}
+                                        okText="نعم"
+                                        cancelText="لا"
+                                    >
+                                        <Button size="small" type='link'>
+                                            <FaCalendarPlus color='green' size={25} />
+                                        </Button>
+                                    </Popconfirm>
+                                </Tooltip>
                                 <Button size="small" onClick={() => setAthleteToEdit(r)} type='link'><FaEdit size={25} /></Button>
                                 <Popconfirm title="هل أنت متأكد؟" onConfirm={() => deleteAthleteAsync(r.id)}>
                                     <Button size="small" type='link'><FaTrash color='red' size={25} /></Button>
@@ -293,11 +330,6 @@ export default function Athletes({ mode, setMode }: { mode: 'dark' | 'light', se
                         }
                     ] as TableColumnsType<AtheleteDetailed>}
                 />
-            </div>
-
-            {/* Fixed Branding Footer */}
-            <div className="w-full text-center text-xs py-3 border-t border-solid border-gray-700/30 opacity-60 mt-1 select-none pointer-events-none">
-                جميع الحقوق محفوظة © ٢٠٢٦ | تطوير وبرمجة: المطور المحترف
             </div>
         </div>
     );

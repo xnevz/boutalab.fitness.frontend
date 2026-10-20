@@ -43,10 +43,10 @@ function GymApp({ mode, setMode }: { mode: 'dark' | 'light', setMode: (mode: 'da
     };
 
     return (
-        <div className={"p-4 pb-0 box-border " + mode}>
-            <div className="flex flex-col items-center justify-center gap-1 mb-2">
-                <Typography.Title 
-                    level={2} 
+        <div className={"p-4 pb-3 box-border flex flex-col h-screen " + mode}>
+            <div className="flex flex-col items-center justify-center gap-1 mb-2 flex-shrink-0">
+                <Typography.Title
+                    level={2}
                     className="font-bold m-0 text-center"
                     editable={isAdmin ? {
                         onChange: handleTitleChange,
@@ -57,13 +57,18 @@ function GymApp({ mode, setMode }: { mode: 'dark' | 'light', setMode: (mode: 'da
                     {gymName}
                 </Typography.Title>
                 {!isAdmin && (
-                    <span className="text-[10px] text-gray-500 opacity-60 pointer-events-none select-none">
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 opacity-60 pointer-events-none select-none">
                         (اضغط Ctrl+Alt+D للتحكم في الإعدادات)
                     </span>
                 )}
             </div>
-            <Athletes {...{ mode, setMode }} />
-        </div>
+            <div className="flex-grow overflow-hidden">
+                <Athletes {...{ mode, setMode }} />
+            </div>
+            <a target='_blank' href='https://www.facebook.com/abdelkarimbettayeb1/' className="text-center text-xs py-1 text-gray-500 dark:text-gray-400 opacity-80 flex-shrink-0 select-none">
+                Made with ❤️ by Abdelkarim. All rights reserved.
+            </a>
+        </div >
     );
 }
 
